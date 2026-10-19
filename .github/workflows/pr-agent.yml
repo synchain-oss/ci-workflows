@@ -156,6 +156,10 @@ jobs:
           DESCRIBE: ${{ inputs.describe }}
           PERSISTENT: ${{ inputs.persistent_comments }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+          # job.workflow_* describe this reusable workflow (github.workflow_* describe the
+          # caller's file). Callers on a moving tag (@v1) can audit which commit ran.
+          CENTRAL_REF: ${{ job.workflow_ref }}
+          CENTRAL_SHA: ${{ job.workflow_sha }}
         run: |
           set -euo pipefail
           # Fail here, readably, instead of inside the container on a malformed list.
@@ -240,6 +244,7 @@ jobs:
             echo "| max output tokens | $max_out |"
             echo "| ai_timeout | 900 s, no retry on timeout |"
             echo "| tools | describe=$describe, review, improve; persistent comments=$persistent |"
+            echo "| central workflow | \`${CENTRAL_SHA:-unknown}\` (${CENTRAL_REF:-unknown}) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Pull PR-Agent image

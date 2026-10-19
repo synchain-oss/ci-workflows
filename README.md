@@ -122,6 +122,9 @@ git tag -f -a v1 -m v1 <commit> && git push -f origin v1
 
 Tags `v*` can only be created, moved or deleted by organization admins (ruleset).
 
+The pr-agent and claude-review step summaries record the commit of this repo that the
+run resolved (`job.workflow_sha`), so a caller on `@v1` can tell which version ran.
+
 ## Pinning rule
 
 Every third-party reference in this repo must be immutable, because a moved tag would

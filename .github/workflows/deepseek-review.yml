@@ -170,7 +170,7 @@ jobs:
           claude_args: |
             --tools "Read,Glob,Grep"
             --allowedTools "Read,Glob,Grep"
-            --disallowedTools "Bash,Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch,Agent,Task,RemoteTrigger,CronCreate,CronDelete,CronList,PushNotification,SendMessage,ScheduleWakeup,Monitor,Workflow,Skill,Read(./.git/**),Read(//home/runner/work/**/.git/**),Read(//proc/**),Read(//sys/**),Read(//run/**),Read(//var/run/**),Read(//tmp/**),Read(//etc/**),Read(//home/runner/work/_temp/**),Read(//home/runner/actions-runner/**),Read(//home/runner/.*/**),Read(//home/runner/.*)"
+            --disallowedTools "Bash,Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch,Agent,Task,RemoteTrigger,CronCreate,CronDelete,CronList,PushNotification,SendMessage,ScheduleWakeup,Monitor,Workflow,Skill,Read(./.git/**),Read(//home/runner/work/**/.git/**),Read(//proc/**),Read(//sys/**),Read(//run/**),Read(//var/run/**),Read(//tmp/**),Read(//etc/**),Read(//home/runner/work/_temp/**),Read(//home/runner/actions-runner/**),Read(//home/runner/.*/**),Read(//home/runner/.*),Read(//github/**)"
 
       - name: Post review comment
         if: always() && steps.review.outputs.execution_file != ''
