@@ -1,0 +1,114 @@
+name: bump pr-agent image
+
+# Weekly: if The-PR-Agent/pr-agent published a newer release, resolve the digest of
+# pragent/pr-agent:<version>-github_action, verify its build-provenance attestation, and
+# propose the one-line change to pr-agent.yml as a pull request.
+# Nothing changes for callers until a human merges the PR and moves the v1 tag.
+#
+# Creating the PR needs "Allow GitHub Actions to create and approve pull requests"
+# (org + repo Actions settings). Without it, the branch is still pushed and an issue
+# with the compare link is opened instead.
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"   # Mondays 03:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: bump-pr-agent
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write        # push the bump branch
+      pull-requests: write
+      issues: write
+    env:
+      FILE: .github/workflows/pr-agent.yml
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Find latest release and its image digest
+        id: find
+        run: |
+          set -euo pipefail
+          tag=$(gh api repos/The-PR-Agent/pr-agent/releases/latest --jq .tag_name)
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected release tag '$tag'"; exit 1; }
+          version=${tag#v}
+          image_tag="${version}-github_action"
+
+          token=$(curl -fsSL "https://auth.docker.io/token?service=registry.docker.io&scope=repository:pragent/pr-agent:pull" | jq -r .token)
+          digest=$(curl -fsSI \
+            -H "Authorization: Bearer $token" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+            "https://registry-1.docker.io/v2/pragent/pr-agent/manifests/${image_tag}" \
+            | tr -d '\r' | awk -F': ' 'tolower($1) == "docker-content-digest" {print $2}')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no digest for pragent/pr-agent:${image_tag}"; exit 1; }
+
+          current=$(grep -oE 'PR_AGENT_IMAGE: pragent/pr-agent@sha256:[0-9a-f]{64} # [0-9.]+-github_action' "$FILE")
+          current_digest=$(sed -E 's/.*@(sha256:[0-9a-f]{64}).*/\1/' <<<"$current")
+          current_version=$(sed -E 's/.* # ([0-9.]+)-github_action/\1/' <<<"$current")
+          echo "latest: $tag $digest; pinned: $current_version $current_digest"
+          {
+            echo "tag=$tag"; echo "version=$version"; echo "digest=$digest"
+            echo "current_version=$current_version"
+            if [ "$digest" = "$current_digest" ]; then echo "changed=false"; else echo "changed=true"; fi
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify provenance attestation
+        if: steps.find.outputs.changed == 'true'
+        env:
+          DIGEST: ${{ steps.find.outputs.digest }}
+          TAG: ${{ steps.find.outputs.tag }}
+        run: |
+          gh attestation verify "oci://index.docker.io/pragent/pr-agent@${DIGEST}" \
+            --repo The-PR-Agent/pr-agent \
+            --signer-workflow The-PR-Agent/pr-agent/.github/workflows/publish.yml \
+            --source-ref "refs/tags/${TAG}"
+
+      - name: Propose the bump
+        if: steps.find.outputs.changed == 'true'
+        env:
+          TAG: ${{ steps.find.outputs.tag }}
+          VERSION: ${{ steps.find.outputs.version }}
+          DIGEST: ${{ steps.find.outputs.digest }}
+          CURRENT_VERSION: ${{ steps.find.outputs.current_version }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          branch="bump/pr-agent-${VERSION}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "branch $branch already exists; nothing to do"
+            exit 0
+          fi
+          sed -i -E "s|^(\s*PR_AGENT_IMAGE: pragent/pr-agent@)sha256:[0-9a-f]{64} # [0-9.]+-github_action|\1${DIGEST} # ${VERSION}-github_action|" "$FILE"
+          git diff --exit-code --quiet "$FILE" && { echo "::error::sed did not change $FILE"; exit 1; }
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -s -am "pr-agent: bump image to ${VERSION}" -m "pragent/pr-agent:${VERSION}-github_action = ${DIGEST}; provenance verified against The-PR-Agent/pr-agent publish.yml @ refs/tags/${TAG}."
+          git push origin "$branch"
+
+          body=$(cat <<EOF
+          pragent/pr-agent \`${CURRENT_VERSION}\` -> \`${VERSION}\`
+
+          - New digest: \`${DIGEST}\` (\`${VERSION}-github_action\`), build provenance verified: The-PR-Agent/pr-agent \`publish.yml\` @ \`refs/tags/${TAG}\`.
+          - Release notes: https://github.com/The-PR-Agent/pr-agent/releases/tag/${TAG}
+          - Config changes: https://github.com/The-PR-Agent/pr-agent/compare/v${CURRENT_VERSION}...${TAG} (check \`pr_agent/settings/configuration.toml\`, \`github_action_runner.py\`, the litellm pin)
+
+          Before merging, check that every key set in \`pr-agent.yml\` still exists with the same meaning, especially \`fallback_models\`, \`ai_timeout\`, \`retry_same_model_on_timeout\`, \`max_output_tokens\`, the adaptive-thinking keys and the default model list. After merging, move the \`v1\` tag.
+          EOF
+          )
+          if ! gh pr create --base main --head "$branch" --title "pr-agent: bump image to ${VERSION}" --body "$body"; then
+            echo "::warning::could not open a PR (Actions may not create PRs here); opening an issue instead"
+            gh issue create --title "pr-agent ${VERSION} is out: bump branch ready" \
+              --body "$body"$'\n\n'"Open the PR: https://github.com/${REPO}/compare/main...${branch}"
+          fi
