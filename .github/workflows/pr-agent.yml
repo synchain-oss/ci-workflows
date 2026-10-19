@@ -84,7 +84,7 @@ on:
         default: ""
       reasoning_effort:
         description: >-
-          Empty = provider default. anthropic: "xhigh" (sent as output_config.effort with
+          Empty = provider default. anthropic: "high" (sent as output_config.effort with
           adaptive thinking). Other providers: "medium", which is pr-agent's own default,
           so DeepSeek thinking stays exactly as before.
         type: string
@@ -188,7 +188,11 @@ jobs:
               max_out=${MAX_OUT:-128000}
               # Not "max": at max a review / improve call wrote 50-90k output tokens and
               # several calls hit the 900 s ai_timeout, so nothing was posted.
-              effort=${EFFORT:-xhigh}
+              # Not "xhigh" (yet): the pinned image's litellm model map lacks
+              # supports_xhigh_reasoning_effort for claude-haiku-5-5, so litellm rejects it
+              # client-side with a 400. Switch to xhigh when an image bump brings a map
+              # that has it (litellm main already does).
+              effort=${EFFORT:-high}
               # pr-agent's built-in adaptive-thinking regex does not know claude-haiku-5-5.
               # Listing the exact model id turns on thinking={type:adaptive} +
               # output_config.effort and drops temperature (Haiku 5.5 rejects any
