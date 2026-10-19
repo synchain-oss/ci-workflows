@@ -1,0 +1,19 @@
+# Every reference below must be rejected by check-pins.sh.
+jobs:
+  a:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@main
+      - uses: "actions/checkout@v4" # v4
+      - uses: actions/checkout@3d3c42e5  # short sha
+      - uses: actions/checkout@3D3C42E5AAC5BA805825DA76410C181273BA90B1
+      - uses: actions/checkout
+      - uses: docker://alpine:3.20
+      - uses: docker://alpine@sha256:abc
+  b:
+    uses: some-org/ci-workflows/.github/workflows/x.yml@v1
+    env:
+      PR_AGENT_IMAGE: pragent/pr-agent:0.48.0-github_action
+      OTHER_IMAGE: 'alpine:latest'
+    container:
+      image: node:22

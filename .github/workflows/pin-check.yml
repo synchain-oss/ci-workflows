@@ -1,0 +1,40 @@
+name: pin check
+
+# Every Synchain-oss / DLsnows repo calls the reusable workflows in this repo, so a
+# mutable action or image ref here would silently reach all of them. This job fails
+# when a `uses:` ref is not a commit SHA or an image is not pinned by digest.
+on:
+  pull_request:
+    paths: ['.github/**']
+  push:
+    branches: [main]
+    paths: ['.github/**']
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  pin-check:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check pins
+        run: bash .github/scripts/check-pins.sh
+
+      # Proves the guard works: unpinned refs must fail, pinned refs must pass.
+      - name: Self-test against fixtures
+        run: |
+          if bash .github/scripts/check-pins.sh .github/pin-check-fixtures/bad.yml > bad.log; then
+            echo "::error::checker accepted unpinned refs"; exit 1
+          fi
+          cat bad.log
+          expected=12
+          found=$(grep -c '^ERROR ' bad.log || true)
+          [ "$found" -eq "$expected" ] || { echo "::error::expected $expected errors on bad.yml, got $found"; exit 1; }
+          bash .github/scripts/check-pins.sh .github/pin-check-fixtures/good.yml

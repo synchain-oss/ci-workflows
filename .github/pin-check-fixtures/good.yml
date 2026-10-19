@@ -1,0 +1,16 @@
+# Every reference below must be accepted by check-pins.sh.
+jobs:
+  a:
+    steps:
+      - uses: ./.github/actions/local
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+      - name: quoted
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"   # v7.0.1
+      - uses: docker://alpine@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  b:
+    uses: some-org/ci-workflows/.github/workflows/x.yml@3d3c42e5aac5ba805825da76410c181273ba90b1 # v1.2.3
+    env:
+      PR_AGENT_IMAGE: pragent/pr-agent@sha256:80edef71baa3df28c129d858d4b53784abfc14704c235efb32b6c461d5399a6d # 0.48.0-github_action
+    container:
+      image: ${{ inputs.image }}

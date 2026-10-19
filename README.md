@@ -121,3 +121,14 @@ git tag -f -a v1 -m v1 <commit> && git push -f origin v1
 ```
 
 Tags `v*` can only be created, moved or deleted by organization admins (ruleset).
+
+## Pinning rule
+
+Every third-party reference in this repo must be immutable, because a moved tag would
+reach every caller at once: `uses:` refs are `owner/repo@<40-hex commit SHA> # vX.Y.Z`
+(local `./` paths are fine), and container images are pinned by `@sha256:<digest>`.
+`pin-check.yml` runs `.github/scripts/check-pins.sh` on every PR touching `.github/**`
+and fails otherwise; a SHA pin without a trailing `# vX` comment only warns. It also
+runs the checker against `.github/pin-check-fixtures/` (bad refs must fail, good refs
+must pass), so removing the guard turns the check red. Run it locally with
+`bash .github/scripts/check-pins.sh`.
