@@ -41,9 +41,18 @@ on:
           JSON list of bases where another pr-agent is the primary reviewer on the same PR.
           There this run skips /describe and posts review/improve as new comments, because
           two pr-agents share one comment identity and would overwrite each other's
-          PR description and persistent comments.
+          PR description and persistent comments. The primary run must also set
+          persistent_comments: false, or it edits this run's comments.
         type: string
         default: "[]"
+      persistent_comments:
+        description: >-
+          false = /review and /improve always post new comments instead of editing their
+          previous one. Set it on the primary run when another pr-agent posts on the same PR:
+          persistent mode edits the newest comment carrying pr-agent's marker, whichever
+          pr-agent wrote it, so it would overwrite the other run's comments.
+        type: boolean
+        default: true
       describe:
         description: >-
           false = never run /describe, on any base. For repos whose rules fix the PR body
@@ -145,6 +154,7 @@ jobs:
           IGNORE_GLOBS: ${{ inputs.ignore_globs }}
           SECONDARY_ON: ${{ inputs.secondary_on_bases }}
           DESCRIBE: ${{ inputs.describe }}
+          PERSISTENT: ${{ inputs.persistent_comments }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
@@ -201,6 +211,7 @@ jobs:
             role=primary; describe=true; persistent=true
           fi
           [ "$DESCRIBE" = true ] || describe=false
+          [ "$PERSISTENT" = true ] || persistent=false
 
           {
             echo "api_base=$api_base"

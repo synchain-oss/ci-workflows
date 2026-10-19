@@ -19,7 +19,9 @@ and the review prompt skeleton live here, so a fix lands everywhere at once.
 - Repos that also run the Claude-credit pr-agent (`provider: anthropic`, all bases) mark
   `dev` as `secondary_on_bases`: there it skips `/describe` and posts review/improve as
   new comments, because two pr-agents on one PR share one comment identity and would
-  overwrite each other's description and persistent comments.
+  overwrite each other's description and persistent comments. Their `opencode-go`
+  pr-agent sets `persistent_comments: false`: in persistent mode it edits the newest
+  comment carrying pr-agent's marker, which may be the Claude-credit run's.
 - Draft, fork, bot-authored PRs and bot pushes are skipped.
 
 pr-agent cost guards (do not loosen without reading the comments in `pr-agent.yml`):
