@@ -44,6 +44,16 @@ on:
           PR description and persistent comments.
         type: string
         default: "[]"
+      describe:
+        description: >-
+          false = never run /describe, on any base. For repos whose rules fix the PR body
+          (e.g. the sign-off must be its last line): describe appends its sections to the body.
+        type: boolean
+        default: true
+      review_labels:
+        description: false = /review adds no "Review effort" / "Possible security concern" labels.
+        type: boolean
+        default: true
       promotion_heads:
         description: JSON list. A PR from one of these heads into a promotion base is a promotion and is skipped.
         type: string
@@ -134,6 +144,7 @@ jobs:
           WORKSPACE: ${{ inputs.anthropic_workspace_id }}
           IGNORE_GLOBS: ${{ inputs.ignore_globs }}
           SECONDARY_ON: ${{ inputs.secondary_on_bases }}
+          DESCRIBE: ${{ inputs.describe }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
@@ -189,6 +200,7 @@ jobs:
           else
             role=primary; describe=true; persistent=true
           fi
+          [ "$DESCRIBE" = true ] || describe=false
 
           {
             echo "api_base=$api_base"
@@ -282,6 +294,8 @@ jobs:
           pr_reviewer.persistent_comment: ${{ steps.cfg.outputs.persistent }}
           pr_reviewer.persistent_finding_state: ${{ steps.cfg.outputs.persistent }}
           pr_code_suggestions.persistent_comment: ${{ steps.cfg.outputs.persistent }}
+          pr_reviewer.enable_review_labels_effort: ${{ inputs.review_labels }}
+          pr_reviewer.enable_review_labels_security: ${{ inputs.review_labels }}
           # Model, token counts and call count at the end of each comment: a silent model
           # switch or token blow-up is visible on the PR.
           config.output_run_details: "true"

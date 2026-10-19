@@ -98,6 +98,9 @@ jobs:
             echo "::error::该 PR 含符号链接，按安全策略不做 AI 审查，请维护者本地人工审。"
             exit 1
           fi
+          # The action re-checks out the PR head after this check; with this setting any
+          # symlink pushed in between is written as a plain file holding the target path.
+          git config core.symlinks false
           # Delete before creating: the PR may ship its own .ot-review/ symlinks, and `>`
           # would follow them out of the workspace.
           rm -rf .ot-review
@@ -129,6 +132,8 @@ jobs:
           # (contents: read): pushing is impossible even if the tool boundary failed.
           github_token: ${{ github.token }}
           track_progress: true
+          # extra_prompt stays last: repos end it with their untrusted-data declaration,
+          # which their rules require at the very end of the prompt.
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
@@ -147,9 +152,9 @@ jobs:
             ${{ inputs.focus }}
             - 本 workflow 只做审查:不要修改仓库文件、不要创建 commit
 
-            ${{ inputs.extra_prompt }}
-
             文件级问题用 inline comment;若无严重问题,留一条简短的中文总结评论。
+
+            ${{ inputs.extra_prompt }}
           # Tool boundary. The model reads untrusted text (diff, title, body); it must not get
           # tools that read the environment, run commands or write anything out. The tracking
           # comment and inline comments are the only write channels.
@@ -170,7 +175,9 @@ jobs:
           #   Known: /home/runner/work/_actions/** (the action's own public code) stays readable.
           # - Residual window: the symlink check sees the event's merge commit; the action then
           #   re-checks out the PR head by branch name, so commits pushed in between are not
-          #   checked. Same-repo PRs only, whose authors already have write access: accepted.
+          #   checked. core.symlinks=false (set in the previous step) keeps any symlink in them
+          #   from being created as a link; same-repo PRs only, whose authors already have
+          #   write access.
           claude_args: |
             --model ${{ inputs.model }}
             --tools "Read,Glob,Grep"

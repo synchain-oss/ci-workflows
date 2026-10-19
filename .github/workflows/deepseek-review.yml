@@ -124,6 +124,7 @@ jobs:
           # Must stay "false": the classifier step posts to api.anthropic.com with the
           # anthropic_api_key input, which here is the DeepSeek / Go key.
           classify_inline_comments: "false"
+          # extra_prompt stays last (see claude-review.yml).
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ inputs.pr_number }}
@@ -139,10 +140,10 @@ jobs:
             ${{ inputs.focus }}
             - 本 workflow 只做审查:不要修改仓库文件、不要创建 commit
 
-            ${{ inputs.extra_prompt }}
-
             你的**最终回答**会被原样发成一条 PR 评论，所以最终回答只写审查结论：
             列出问题（带 `文件:行号`），或写「未发现严重问题,可合并」。
+
+            ${{ inputs.extra_prompt }}
           # Model comes from ANTHROPIC_MODEL (job env); the action lets it override --model.
           claude_args: |
             --tools "Read,Glob,Grep"

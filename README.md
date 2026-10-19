@@ -101,12 +101,21 @@ Notes for callers:
   pr-agent runs through `docker run`, so no image needs allowing.
 - A repo `.pr_agent.toml` is still read by pr-agent and can override these settings.
   Keep `[config]` model / fallback / token keys out of it.
+- `extra_prompt` is the last part of the claude-review / deepseek-review prompt, so a
+  repo can end it with its untrusted-data declaration.
+- pr-agent `describe: false` never rewrites the PR body (for repos whose rules fix the
+  body, e.g. a sign-off as its last line); `review_labels: false` stops /review from
+  adding "Review effort" / "Possible security concern" labels.
 
 ## Versioning
 
-Callers use `@v1`. Changes merge to `main` first; move `v1` after checking them on a
-pilot PR:
+Callers use `@v1`, or, where repo rules forbid movable refs, `@<40-hex sha> # v1.N.M`.
+Every release gets an immutable `v1.N.M` tag (lets Dependabot propose SHA bumps), and
+`v1` moves to it after the change has been checked on a pilot PR:
 
 ```sh
-git tag -f v1 <commit> && git push -f origin v1
+git tag -a v1.N.M -m v1.N.M <commit> && git push origin v1.N.M
+git tag -f -a v1 -m v1 <commit> && git push -f origin v1
 ```
+
+Tags `v*` can only be created, moved or deleted by organization admins (ruleset).
