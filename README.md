@@ -26,7 +26,9 @@ and the review prompt skeleton live here, so a fix lands everywhere at once.
 
 pr-agent cost guards (do not loosen without reading the comments in `pr-agent.yml`):
 one model and no fallback (`fallback_models: []`), `ai_timeout` 900 s with no retry on
-timeout, explicit `max_output_tokens`, image pinned by digest.
+timeout, explicit `max_output_tokens`, image pinned by digest. The input budget
+`max_model_tokens` is counted with pr-agent's own (OpenAI) tokenizer, which undercounts
+Claude tokens, so `provider: anthropic` defaults to 500000 and the others to 800000.
 
 ## Caller examples
 
@@ -122,8 +124,11 @@ git tag -f -a v1 -m v1 <commit> && git push -f origin v1
 
 Tags `v*` can only be created, moved or deleted by organization admins (ruleset).
 
-The pr-agent and claude-review step summaries record the commit of this repo that the
-run resolved (`job.workflow_sha`), so a caller on `@v1` can tell which version ran.
+The pr-agent and claude-review step summaries record `job.workflow_sha`, so a caller on
+`@v1` can tell which version ran. For a ref that is an annotated tag (`@v1`, `@v1.N.M`)
+GitHub reports the tag object's SHA, not the commit; `git rev-parse <sha>^{commit}` in a
+clone (or `gh api repos/Synchain-oss/ci-workflows/git/tags/<sha> --jq .object.sha`) gives
+the commit. A caller pinned to a commit SHA sees that commit.
 
 ## Pinning rule
 

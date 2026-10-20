@@ -75,9 +75,11 @@ on:
         type: string
         default: '["vendor/**"]'
       max_model_tokens:
-        description: Input budget. pr-agent clamps every prompt to this.
+        description: >-
+          Input budget; pr-agent clamps every prompt to this, counted with its own tokenizer.
+          Empty = provider default (anthropic 500000, others 800000).
         type: string
-        default: "800000"
+        default: ""
       max_output_tokens:
         description: "Empty = provider default (flash 131072, Haiku 5.5 128000)."
         type: string
@@ -149,6 +151,7 @@ jobs:
           PROVIDER: ${{ inputs.provider }}
           MODEL: ${{ inputs.model }}
           MAX_OUT: ${{ inputs.max_output_tokens }}
+          MAX_IN: ${{ inputs.max_model_tokens }}
           EFFORT: ${{ inputs.reasoning_effort }}
           WORKSPACE: ${{ inputs.anthropic_workspace_id }}
           IGNORE_GLOBS: ${{ inputs.ignore_globs }}
@@ -174,6 +177,7 @@ jobs:
               api_base=https://opencode.ai/zen/go
               model=${MODEL:-anthropic/deepseek-v4.1-flash}
               max_out=${MAX_OUT:-131072}
+              max_in=${MAX_IN:-800000}
               effort=${EFFORT:-medium}
               # The Go gateway requires a session header; it also ties every request in
               # the Go request log to this run.
@@ -183,6 +187,7 @@ jobs:
               api_base=https://api.deepseek.com/anthropic
               model=${MODEL:-anthropic/deepseek-flash}
               max_out=${MAX_OUT:-131072}
+              max_in=${MAX_IN:-800000}
               effort=${EFFORT:-medium}
               headers='{}'
               ;;
@@ -190,6 +195,11 @@ jobs:
               api_base=https://api.anthropic.com
               model=${MODEL:-anthropic/claude-haiku-5-5}
               max_out=${MAX_OUT:-128000}
+              # pr-agent counts the prompt with an OpenAI tokenizer, which undercounts Claude
+              # tokens: a large promotion diff clamped to 800000 by that count was 1001327
+              # Haiku tokens, over the 1M window (400, no review). 500000 leaves room for the
+              # undercount plus max_output_tokens.
+              max_in=${MAX_IN:-500000}
               # Not "max": at max a review / improve call wrote 50-90k output tokens and
               # several calls hit the 900 s ai_timeout, so nothing was posted.
               # Not "xhigh" (yet): the pinned image's litellm model map lacks
@@ -227,6 +237,7 @@ jobs:
             echo "api_base=$api_base"
             echo "model=$model"
             echo "max_output_tokens=$max_out"
+            echo "max_model_tokens=$max_in"
             echo "reasoning_effort=$effort"
             echo "adaptive=$adaptive"
             echo "adaptive_models=$adaptive_models"
@@ -242,6 +253,7 @@ jobs:
             echo "| model | \`$model\` (no fallback) |"
             echo "| reasoning effort | $effort (adaptive thinking: $adaptive) |"
             echo "| max output tokens | $max_out |"
+            echo "| input budget (pr-agent's count) | $max_in |"
             echo "| ai_timeout | 900 s, no retry on timeout |"
             echo "| tools | describe=$describe, review, improve; persistent comments=$persistent |"
             echo "| central workflow | \`${CENTRAL_SHA:-unknown}\` (${CENTRAL_REF:-unknown}) |"
@@ -304,7 +316,7 @@ jobs:
           # These model ids are not in pr-agent's MAX_TOKENS table, so give the window (1M for
           # both DeepSeek V4.1 Flash and Haiku 5.5); max_model_tokens then clamps the prompt.
           config.custom_model_max_tokens: "1000000"
-          config.max_model_tokens: ${{ inputs.max_model_tokens }}
+          config.max_model_tokens: ${{ steps.cfg.outputs.max_model_tokens }}
           ignore.glob: ${{ inputs.ignore_globs }}
 
           # --- What runs: on open and on every push --------------------------------------------
